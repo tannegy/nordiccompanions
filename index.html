@@ -789,20 +789,51 @@ function checkout() {
 }
 
 // ─── FORM ───
-function handleSubmit(e) {
+async function handleSubmit(e) {
   e.preventDefault();
   const form = document.getElementById('orderForm');
   const success = document.getElementById('formSuccess');
+  const submitBtn = form.querySelector('button[type="submit"]');
 
-  // In production: send via fetch to your backend/email service
-  // For now, construct a mailto link
+  // Disable button while submitting
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Skickar...';
+
   const data = new FormData(form);
-  const body = Array.from(data.entries()).map(([k, v]) => `${k}: ${v}`).join('%0A');
-  const subject = encodeURIComponent('Ny beställning — Nordic Companions');
-  window.location.href = `mailto:info@nordiccompanions.com?subject=${subject}&body=${body}`;
+  const payload = {
+    customer_name: data.get('name') || '',
+    customer_email: data.get('email') || '',
+    customer_phone: data.get('phone') || '',
+    product_slug: data.get('product') || '',
+    message: [
+      data.get('message') || '',
+      data.get('horsename') ? 'Hästens namn: ' + data.get('horsename') : '',
+      data.get('color') ? 'Färgönskemål: ' + data.get('color') : ''
+    ].filter(Boolean).join('\n')
+  };
 
-  form.style.display = 'none';
-  success.style.display = 'block';
+  try {
+    const res = await fetch('https://thhsxnendhcvfrzvhrxm.supabase.co/functions/v1/submit-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const result = await res.json();
+    if (res.ok && result.success) {
+      form.style.display = 'none';
+      success.style.display = 'block';
+      cart = [];
+      updateCartUI();
+    } else {
+      alert('Något gick fel. Försök igen.');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Skicka förfrågan';
+    }
+  } catch (err) {
+    alert('Kunde inte skicka. Kontrollera din internetanslutning.');
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Skicka förfrågan';
+  }
 }
 
 // ─── MOBILE NAV ───
